@@ -25,6 +25,8 @@ class Game:
         # ใช้สำหรับการตั้งค่าการทำซ้ำของการกดปุ่มคีย์บอร์ด เมื่อผู้ใช้กดปุ่มค้างไว้
         pg.key.set_repeat(200, 200)  # (เวลารอตรวจจับกดปุ่มซ้ำหลังจากกดปุ่มค้างไว้, ตรวจจับว่ากดซ้ำเรื่อยๆในอีก...ตราบใดที่ยังกด)
 
+        # โค้ดอื่น ๆ ของ Player
+        
         self.backgrounds = {
     "map1.txt": "img/map1.png",
     "map2.txt": "img/map2.png",
@@ -47,6 +49,32 @@ class Game:
         self.current_map = "map1.txt"  # กำหนดแมพเริ่มต้น
         self.load_data()  # โหลดข้อมูลแมพ
     # -----------------------------------------------------------------------------------
+    def take_damage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.health = 0
+            self.kill()  # ลบตัวละครออกเมื่อสุขภาพเหลือ 0
+
+    def draw_health(self):
+        # กำหนดขนาดของหลอดเลือดให้เล็กลงเพื่อให้เหมาะกับขนาดตัวละคร
+        bar_length = 64  # ความยาวหลอดเลือดที่เล็กลง
+        bar_height = 5   # ความสูงหลอดเลือดที่เล็กลง
+
+        # ตำแหน่งของตัวละครที่ปรับตามกล้อง
+        player_pos = self.camera.apply(self.player).topleft
+
+        # คำนวณตำแหน่งของหลอดเลือดให้อยู่เหนือหัวของตัวละคร
+        x = player_pos[0]
+        y = player_pos[1] - 10  # ปรับตำแหน่ง y ให้เหมาะสมให้อยู่เหนือศีรษะ
+
+        # คำนวณความยาวของหลอดเลือดตามค่าเลือดที่เหลืออยู่
+        health_ratio = self.player.health / 100  # สมมติให้ค่าเลือดสูงสุดเป็น 100
+        health_bar_length = int(bar_length * health_ratio)
+
+        # วาดพื้นหลังของหลอดเลือด (สีเทา)
+        pg.draw.rect(self.scr_display, (60, 60, 60), (x, y, bar_length, bar_height))
+        # วาดหลอดเลือดตามค่าเลือดที่เหลือ (สีแดง)
+        pg.draw.rect(self.scr_display, (255, 0, 0), (x, y, health_bar_length, bar_height))
 
     # Exit
     def quit(self):
@@ -159,15 +187,18 @@ class Game:
 
     # method แสดงผล
     def draw(self):
-        # แสดงผล background โดยให้ตำแหน่งสัมพันธ์กับตำแหน่งของกล้อง
+        # แสดงผล background และ sprite อื่นๆ
         if self.background_image:
             self.scr_display.blit(self.background_image, self.camera.apply_rect(self.background_image.get_rect()))
 
-        self.draw_grid() 
+        self.draw_grid()  # วาดตารางกริดบนหน้าจอ
         for sprite in self.all_sprites:
-            self.scr_display.blit(sprite.image, self.camera.apply(sprite))
-        pg.display.flip()
+            self.scr_display.blit(sprite.image, self.camera.apply(sprite))  # แสดง sprite ทั้งหมด
 
+        self.draw_health()  # แสดงค่าเลือดของตัวละครหลัก
+        pg.display.flip()  # อัปเดตหน้าจอให้แสดงผล
+
+        
     # method อัพเดทตำแหน่งของสไปร์ท
     def update(self):
 

@@ -14,6 +14,8 @@ class Player(pg.sprite.Sprite):
         self.rect = self.image.get_rect()  # สร้างสี่เหลี่ยมล้อมรอบพื้นผิว
         self.vel = vec(0, 0)
         self.pos = vec(x, y) * TILESIZE
+        self.game = game
+        self.health = 100  # กำหนดค่าเลือดเริ่มต้นเป็น 100
 
     def get_keys(self):
         self.vel = vec(0, 0)
@@ -56,6 +58,12 @@ class Player(pg.sprite.Sprite):
                 self.vel.y = 0
                 self.rect.y = self.pos.y
 
+    def take_damage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.health = 0
+            self.kill()  # ลบตัวละครออกเมื่อสุขภาพเหลือ 0
+
     def update(self):
         self.get_keys()
         self.pos += self.vel * self.game.dt
@@ -64,7 +72,7 @@ class Player(pg.sprite.Sprite):
         self.collide_with_walls("x")
         self.rect.y = self.pos.y
         self.collide_with_walls("y")
-        
+
 
         # ตรวจสอบว่าผู้เล่นถึงขอบของแมพในแต่ละทิศหรือไม่
         if self.rect.right >= self.game.map.width:
