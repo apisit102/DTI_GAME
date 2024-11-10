@@ -15,7 +15,7 @@ class Game:
 
         # หน้าต่างแสดงผลให้มีขนาด = WIDTH, HEIGHT
         self.scr_display = pg.display.set_mode((WIDTH, HEIGHT))
-        
+
         # ตั้งค่าชื่อของหน้าต่างเกม ซึ่งจะแสดงที่แถบด้านบนของหน้าต่าง
         pg.display.set_caption("Sweet teacher")
 
@@ -43,13 +43,11 @@ class Game:
             "map5.txt": {"up": "map6.txt", "down": None, "left": None, "right": None},
             "map6.txt": {"up": None, "down": None, "left": None, "right": None}
         }
-        
+
         self.current_map = "map1.txt"  # กำหนดแมพเริ่มต้น
         self.load_data()  # โหลดข้อมูลแมพ
     # -----------------------------------------------------------------------------------
 
-        
-        
     # Exit
     def quit(self):
         pg.quit()
@@ -72,21 +70,26 @@ class Game:
         # โหลดภาพพื้นหลังสำหรับฉากจบ
         background_image = pg.image.load("img/end.png").convert()
 
-        # ข้อความสำหรับฉากจบและตัวแปรสำหรับเอฟเฟกต์การพิมพ์
+        # ข้อความสำหรับฉากจบเป็นภาษาไทย
         ending_texts = [
-            "ท่านผู้กล้า ท่านช่างกล้าหาญยิ่งนัก.",
-            "Peace has returned to the kingdom, thanks to you.",
-            "The king and all the citizens are forever grateful.",
-            "The adventure is over, but your legacy will live on.",
-            "Thank you for playing!"
+            u"ท่านผู้กล้า ท่านช่างกล้าหาญยิ่งนัก.",
+            u"ความสงบสุขได้กลับมาสู่อาณาจักร ด้วยฝีมือของท่าน.",
+            u"พระราชาและประชาชนทุกคนต่างสำนึกในบุญคุณของท่าน.",
+            u"การผจญภัยได้สิ้นสุดลงแล้ว แต่ตำนานของท่านจะคงอยู่ตลอดไป.",
+            u"ขอบคุณที่ร่วมเล่นเกมนี้!"
         ]
+
+        # กำหนดฟอนต์ภาษาไทย
+        font_path = path.join("font", "THSarabunNew.ttf")  # ระบุที่อยู่ของฟอนต์ภาษาไทย
+        font = pg.font.Font(font_path, 40)  # ใช้ฟอนต์ภาษาไทย ขนาด 40
+
         current_text_index = 0  # ตำแหน่งข้อความปัจจุบัน
         text_to_display = ""    # ข้อความที่แสดงบนหน้าจอ
         char_index = 0          # ตำแหน่งตัวอักษรสำหรับเอฟเฟกต์การพิมพ์
         self.showing_ending = True  # ตัวแปรควบคุมการแสดงฉากจบ
         delay_after_sentence = 2000  # หน่วงเวลา 2 วินาทีหลังจากแสดงประโยคครบ
         sentence_complete_time = None  # เวลาที่แสดงประโยคครบทุกตัวอักษร
-        typing_speed = 75  # ความเร็วการแสดงผล (มิลลิวินาทีระหว่างตัวอักษร)
+        typing_speed = 50  # ความเร็วการแสดงผล (มิลลิวินาทีระหว่างตัวอักษร)
         last_char_time = 0  # เก็บเวลาตัวอักษรก่อนหน้า
 
         while self.showing_ending:
@@ -113,27 +116,22 @@ class Game:
                         self.showing_ending = False  # จบการแสดงฉากจบ
 
             # วาดกล่องข้อความและข้อความ โดยขยับขึ้น 15 พิกเซล
-            font = pg.font.Font(None, 40)  # ตั้งค่าแบบอักษรและขนาด
             text_surface = font.render(text_to_display, True, (0, 0, 0))
-            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 60))  # จุดแสดงผลของข้อความ
+            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 50))  # จุดแสดงผลของข้อความ
             self.scr_display.blit(text_surface, text_rect)
 
             pg.display.flip()  # อัปเดตหน้าจอ
-            self.clock.tick(30)  # ปรับความเร็วในการแสดงผลเฟรม
+            self.clock.tick(60)  # ปรับความเร็วในการแสดงผลเฟรม
 
-
-
-
-    
     def load_next_map(self):
         # เช็คว่ามีแมพต่อไปหรือไม่
         if self.current_map_index < len(self.map_files) - 1:
             self.current_map_index += 1  # เปลี่ยนไปที่แมพถัดไป
             self.load_data()  # โหลดข้อมูลของแมพใหม่
             self.new()  # เรียกใช้งาน method เพื่อรีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
-            
+
     def load_data(self):
-        
+
         background_file = self.backgrounds.get(self.current_map)
         if background_file:
             self.background_image = pg.image.load(background_file).convert_alpha()
@@ -151,8 +149,7 @@ class Game:
             self.current_map = next_map  # เปลี่ยนแมพปัจจุบันเป็นแมพถัดไปในทิศทางที่ระบุ
             self.load_data()
             self.new()  # รีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
-            
-            
+
     # method วาดตารางกริด
     def draw_grid(self):
         for x in range(0, WIDTH, TILESIZE):
@@ -165,15 +162,15 @@ class Game:
         # แสดงผล background โดยให้ตำแหน่งสัมพันธ์กับตำแหน่งของกล้อง
         if self.background_image:
             self.scr_display.blit(self.background_image, self.camera.apply_rect(self.background_image.get_rect()))
-        
+
         self.draw_grid() 
         for sprite in self.all_sprites:
             self.scr_display.blit(sprite.image, self.camera.apply(sprite))
         pg.display.flip()
-        
+
     # method อัพเดทตำแหน่งของสไปร์ท
     def update(self):
-        
+
         self.all_sprites.update()
         self.camera.update(self.player)  # อัปเดตตำแหน่งของกล้องตามผู้เล่น
 
@@ -236,8 +233,6 @@ class Game:
                     self.enemies.add(enemy)
                     
         self.camera = Camera(self.map.width, self.map.height)
-        
-        
 # -----------------------------------------------------------------------------------------------
 
 # ------------------ ส่วนของการรันเกม ------------------
@@ -248,5 +243,3 @@ if __name__ == '__main__':
     game.new()
     game.run()
 # ----------------------------------------------------
-
-
