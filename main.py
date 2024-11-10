@@ -6,7 +6,6 @@ from sprites import *
 from settings import *
 from tilemap1 import *
 
-# change for re upload
 # ------------------------------------ สร้าง class Game ขึ้น ------------------------------------
 class Game:
     # ------------------------------- default constructor -------------------------------
