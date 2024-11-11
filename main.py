@@ -5,7 +5,7 @@ from os import path
 from sprites import *
 from settings import *
 from tilemap1 import *
-
+from sprites import NPC  # นำเข้า NPC จากไฟล์ sprites.py
 # ------------------------------------ สร้าง class Game ขึ้น ------------------------------------
 class Game:
     # ------------------------------- default constructor -------------------------------
@@ -17,7 +17,7 @@ class Game:
         self.scr_display = pg.display.set_mode((WIDTH, HEIGHT))
 
         # ตั้งค่าชื่อของหน้าต่างเกม ซึ่งจะแสดงที่แถบด้านบนของหน้าต่าง
-        pg.display.set_caption("Sweet teacher")
+        pg.display.set_caption("Good knight")
 
         # ใช้สำหรับควบคุมความเร็วในการอัปเดตและการแสดงผลของเกม
         self.clock = pg.time.Clock()
@@ -26,7 +26,7 @@ class Game:
         pg.key.set_repeat(200, 200)  # (เวลารอตรวจจับกดปุ่มซ้ำหลังจากกดปุ่มค้างไว้, ตรวจจับว่ากดซ้ำเรื่อยๆในอีก...ตราบใดที่ยังกด)
 
         # โค้ดอื่น ๆ ของ Player
-        
+
         self.backgrounds = {
     "map1.txt": "img/map1.png",
     "map2.txt": "img/map2.png",
@@ -49,6 +49,7 @@ class Game:
         self.current_map = "map1.txt"  # กำหนดแมพเริ่มต้น
         self.load_data()  # โหลดข้อมูลแมพ
     # -----------------------------------------------------------------------------------
+
     def take_damage(self, amount):
         self.health -= amount
         if self.health <= 0:
@@ -58,7 +59,7 @@ class Game:
     def draw_health(self):
         # กำหนดขนาดของหลอดเลือดให้เล็กลงเพื่อให้เหมาะกับขนาดตัวละคร
         bar_length = 64  # ความยาวหลอดเลือดที่เล็กลง
-        bar_height = 5   # ความสูงหลอดเลือดที่เล็กลง
+        bar_height = 8   # ความสูงหลอดเลือดที่เล็กลง
 
         # ตำแหน่งของตัวละครที่ปรับตามกล้อง
         player_pos = self.camera.apply(self.player).topleft
@@ -72,17 +73,70 @@ class Game:
         health_bar_length = int(bar_length * health_ratio)
 
         # วาดพื้นหลังของหลอดเลือด (สีเทา)
-        pg.draw.rect(self.scr_display, (60, 60, 60), (x, y, bar_length, bar_height))
+        pg.draw.rect(self.scr_display, (255, 0, 0), (x, y, bar_length, bar_height))
         # วาดหลอดเลือดตามค่าเลือดที่เหลือ (สีแดง)
-        pg.draw.rect(self.scr_display, (255, 0, 0), (x, y, health_bar_length, bar_height))
+        pg.draw.rect(self.scr_display, (0, 255, 0), (x, y, health_bar_length, bar_height))
 
     # Exit
     def quit(self):
         pg.quit()
         sys.exit()
 
-    def show_start_screen(self):
-        pass
+    def show_main_menu(self):
+        # โหลดภาพพื้นหลัง
+        background_image = pg.image.load("img/menubg2.png").convert()
+        background_image = pg.transform.scale(background_image, (WIDTH, HEIGHT))  # ปรับขนาดภาพให้พอดีกับหน้าต่าง
+
+        font = pg.font.Font(None, 50)
+        button_color = (100, 100, 250)
+        hover_color = (150, 150, 255)
+        animate_scale = 1.1  # สัดส่วนการขยายเมื่อเมาส์วางบนปุ่ม
+
+        # ปรับตำแหน่งปุ่มให้อยู่มุมซ้ายบน
+        start_button = pg.Rect(300, 125, 250, 70)          # ปุ่ม Start
+        option_button = pg.Rect(300, 240, 250, 70)        # ปุ่ม Option
+        exit_button = pg.Rect(300, 355, 250, 70)          # ปุ่ม Exit
+
+        while True:
+            # วาดภาพพื้นหลัง
+            self.scr_display.blit(background_image, (0, 0))
+
+            # ตรวจสอบตำแหน่งของเมาส์
+            mouse_pos = pg.mouse.get_pos()
+
+            # แอนิเมชั่นปุ่ม Start: ขยายขนาดเมื่อเมาส์วางบนปุ่ม
+            if start_button.collidepoint(mouse_pos):
+                animated_start_button = start_button.inflate(int(start_button.width * (animate_scale - 1)), int(start_button.height * (animate_scale - 1)))
+                pg.draw.rect(self.scr_display, hover_color, animated_start_button)
+            else:
+                pg.draw.rect(self.scr_display, button_color, start_button)
+
+            # ปุ่ม Option และ Exit
+            pg.draw.rect(self.scr_display, button_color if not option_button.collidepoint(mouse_pos) else hover_color, option_button)
+            pg.draw.rect(self.scr_display, button_color if not exit_button.collidepoint(mouse_pos) else hover_color, exit_button)
+
+            # วาดข้อความในปุ่ม
+            self.draw_text("Start", font, (0, 0, 0), start_button.centerx, start_button.centery)
+            self.draw_text("Option", font, (0, 0, 0), option_button.centerx, option_button.centery)
+            self.draw_text("Exit", font, (0, 0, 0), exit_button.centerx, exit_button.centery)
+
+            # ตรวจสอบเหตุการณ์คลิก
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.quit()
+                elif event.type == pg.MOUSEBUTTONDOWN:
+                    if start_button.collidepoint(event.pos):
+                        return  # เริ่มเกม
+                    elif exit_button.collidepoint(event.pos):
+                        self.quit()
+
+            pg.display.flip()
+            self.clock.tick(FPS)
+
+    def draw_text(self, text, font, color, x, y):
+        text_obj = font.render(text, True, color)
+        text_rect = text_obj.get_rect(center=(x, y))
+        self.scr_display.blit(text_obj, text_rect)
 
     def is_level_complete(self):
         # ตัวอย่างเงื่อนไข: ไม่มีศัตรูเหลืออยู่ในด่าน
@@ -145,11 +199,11 @@ class Game:
 
             # วาดกล่องข้อความและข้อความ โดยขยับขึ้น 15 พิกเซล
             text_surface = font.render(text_to_display, True, (0, 0, 0))
-            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 50))  # จุดแสดงผลของข้อความ
+            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 45))  # จุดแสดงผลของข้อความ
             self.scr_display.blit(text_surface, text_rect)
 
             pg.display.flip()  # อัปเดตหน้าจอ
-            self.clock.tick(60)  # ปรับความเร็วในการแสดงผลเฟรม
+            self.clock.tick(FPS)  # ปรับความเร็วในการแสดงผลเฟรม
 
     def load_next_map(self):
         # เช็คว่ามีแมพต่อไปหรือไม่
@@ -168,8 +222,7 @@ class Game:
         img_folder = path.join(game_folder, "img")
         self.map = Map(path.join(game_folder, self.current_map))
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
-        
-        
+
     def load_map_in_direction(self, direction):
         # ตรวจสอบว่าทิศทางนี้มีแมพหรือไม่
         next_map = self.map_files[self.current_map].get(direction)
@@ -177,6 +230,12 @@ class Game:
             self.current_map = next_map  # เปลี่ยนแมพปัจจุบันเป็นแมพถัดไปในทิศทางที่ระบุ
             self.load_data()
             self.new()  # รีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
+
+    def draw_npc_text(self):
+        font = pg.font.Font(None, 30)
+        for npc in self.npcs:
+            if npc.display_message:
+                self.draw_text(npc.text, font, (255, 255, 255), npc.rect.x, npc.rect.y - 20)
 
     # method วาดตารางกริด
     def draw_grid(self):
@@ -192,13 +251,15 @@ class Game:
             self.scr_display.blit(self.background_image, self.camera.apply_rect(self.background_image.get_rect()))
 
         self.draw_grid()  # วาดตารางกริดบนหน้าจอ
+
+        self.draw_npc_text()    # แสดงข้อความของ NPC เมื่อผู้เล่นเข้าใกล้
+
         for sprite in self.all_sprites:
             self.scr_display.blit(sprite.image, self.camera.apply(sprite))  # แสดง sprite ทั้งหมด
 
         self.draw_health()  # แสดงค่าเลือดของตัวละครหลัก
         pg.display.flip()  # อัปเดตหน้าจอให้แสดงผล
 
-        
     # method อัพเดทตำแหน่งของสไปร์ท
     def update(self):
 
@@ -209,7 +270,6 @@ class Game:
         if self.current_map == "map6.txt" and self.is_level_complete():
             self.show_ending_scene()
             self.quit()
-
 
     # method อีเวนท์ต่างๆ
     def events(self):
@@ -241,7 +301,6 @@ class Game:
                 self.show_ending_scene()
                 self.quit()  # ออกจากเกมหลังจากแสดงฉากจบเสร็จ
 
-
     # ----------------------------------------------------------------------
 
     def new(self):
@@ -251,6 +310,21 @@ class Game:
         self.all_sprites = pg.sprite.Group()
         self.walls = pg.sprite.Group()
         self.enemies = pg.sprite.Group()  # เริ่มต้นกลุ่มศัตรู
+        self.npcs = pg.sprite.Group()  # กลุ่มสำหรับ NPC
+
+        # สร้าง NPC หลายตัวและกำหนดตำแหน่งที่ต่างกัน
+        npc_image1 = "img/npc1.png"
+        npc_image2 = "img/npc2.png"
+        npc_image3 = "img/npc3.png"
+
+        # สร้าง NPC และเพิ่มลงในกลุ่ม NPC
+        self.npc1 = NPC(self, 5, 5, npc_image1, "Hello, I'm NPC 1!")
+        self.npc2 = NPC(self, 8, 8, npc_image2, "Greetings from NPC 2!")
+        self.npc3 = NPC(self, 12, 10, npc_image3, "Watch out, NPC 3 is here!")
+
+        # เพิ่ม NPC ลงในกลุ่มสไปร์ท
+        self.all_sprites.add(self.npc1, self.npc2, self.npc3)
+        self.npcs.add(self.npc1, self.npc2, self.npc3)
 
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
@@ -262,8 +336,10 @@ class Game:
                     enemy = Enemy(self, col, row)
                     self.all_sprites.add(enemy)
                     self.enemies.add(enemy)
-                    
+
         self.camera = Camera(self.map.width, self.map.height)
+        
+        
 # -----------------------------------------------------------------------------------------------
 
 # ------------------ ส่วนของการรันเกม ------------------
@@ -271,6 +347,7 @@ class Game:
 # ถ้าใช่ แสดงว่าไฟล์นี้ถูกเรียกใช้โดยตรง
 if __name__ == '__main__':
     game = Game()   # สร้าง object game จาก class Game
+    game.show_main_menu()
     game.new()
     game.run()
 # ----------------------------------------------------
