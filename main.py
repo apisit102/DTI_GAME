@@ -287,7 +287,7 @@ class Game:
 
     # --------------------- สร้าง method run สำหรับรันเกม  ---------------------
     def run(self):
-        
+
         # ตราบใดที่ self.playing = True เกมก็จะยังทำงาน
         self.playing = True
         while self.playing:
@@ -303,6 +303,14 @@ class Game:
 
     # ----------------------------------------------------------------------
 
+    def load_map_in_direction(self, direction):
+        # ตรวจสอบว่าทิศทางนี้มีแผนที่หรือไม่
+        next_map = self.map_files[self.current_map].get(direction)
+        if next_map:
+            self.current_map = next_map  # เปลี่ยนแผนที่ปัจจุบันเป็นแผนที่ถัดไปในทิศทางที่ระบุ
+            self.load_data()  # โหลดข้อมูลแผนที่ใหม่
+            self.new()  # เรียกใช้งาน method new เพื่อรีเซ็ตกลุ่ม sprite สำหรับแผนที่ใหม่
+
     def new(self):
         # initialize all variables and do all the setup for a new game
 
@@ -312,19 +320,12 @@ class Game:
         self.enemies = pg.sprite.Group()  # เริ่มต้นกลุ่มศัตรู
         self.npcs = pg.sprite.Group()  # กลุ่มสำหรับ NPC
 
-        # สร้าง NPC หลายตัวและกำหนดตำแหน่งที่ต่างกัน
-        npc_image1 = "img/npc1.png"
-        npc_image2 = "img/npc2.png"
-        npc_image3 = "img/npc3.png"
-
-        # สร้าง NPC และเพิ่มลงในกลุ่ม NPC
-        self.npc1 = NPC(self, 5, 5, npc_image1, "Hello, I'm NPC 1!")
-        self.npc2 = NPC(self, 8, 8, npc_image2, "Greetings from NPC 2!")
-        self.npc3 = NPC(self, 12, 10, npc_image3, "Watch out, NPC 3 is here!")
-
-        # เพิ่ม NPC ลงในกลุ่มสไปร์ท
-        self.all_sprites.add(self.npc1, self.npc2, self.npc3)
-        self.npcs.add(self.npc1, self.npc2, self.npc3)
+        if self.current_map in NPC_DATA:
+            for npc_info in NPC_DATA[self.current_map]:
+                # สร้าง NPC จากข้อมูลใน NPC_DATA
+                npc = NPC(self, npc_info["x"], npc_info["y"], npc_info["image"], npc_info["text"])
+                self.all_sprites.add(npc)
+                self.npcs.add(npc)
 
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
@@ -350,4 +351,5 @@ if __name__ == '__main__':
     game.show_main_menu()
     game.new()
     game.run()
+
 # ----------------------------------------------------

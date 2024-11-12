@@ -113,3 +113,28 @@ class Wall(pg.sprite.Sprite):
         self.rect.x = x * TILESIZE
         self.rect.y = y * TILESIZE
 # ------------------------------------------------------------------------
+class NPC(pg.sprite.Sprite):
+    def __init__(self, game, x, y, image_path, text):
+        self._layer = 1  # ระดับชั้นของการวาด
+        self.groups = game.all_sprites, game.npcs  # เพิ่ม NPC ลงในกลุ่ม all_sprites และ npcs
+        pg.sprite.Sprite.__init__(self, self.groups)
+
+        self.game = game
+        self.image = pg.image.load(image_path).convert_alpha()
+        self.image = pg.transform.scale(self.image, (TILESIZE, TILESIZE))
+
+        # กำหนดตำแหน่งของ NPC บนแผนที่
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE
+        self.rect.y = y * TILESIZE
+
+        self.text = text  # ข้อความที่จะให้แสดงเมื่อผู้เล่นอยู่ใกล้
+        self.display_message = False  # ควบคุมการแสดงข้อความ
+
+    def update(self):
+            # ตรวจสอบระยะห่างระหว่างผู้เล่นและ NPC
+            distance = ((self.game.player.rect.x - self.rect.x) ** 2 + (self.game.player.rect.y - self.rect.y) ** 2) ** 0.5
+            if distance < 100:  # ระยะที่จะแสดงข้อความ สามารถปรับได้ตามต้องการ
+                self.display_message = True
+            else:
+                self.display_message = False
