@@ -6,26 +6,32 @@ from sprites import *
 from settings import *
 from tilemap1 import *
 from sprites import NPC  # นำเข้า NPC จากไฟล์ sprites.py
-# ------------------------------------ สร้าง class Game ขึ้น ------------------------------------
+from npc_data import NPC_DATA
+
+# สร้างคลาสเกม
 class Game:
-    # ------------------------------- default constructor -------------------------------
+    # default constructor
     def __init__(self):
         # เริ่มต้น pygame
         pg.init()
 
-        # หน้าต่างแสดงผลให้มีขนาด = WIDTH, HEIGHT
+        # หน้าต่างแสดงผลให้มีขนาด = 1600 * 960
         self.scr_display = pg.display.set_mode((WIDTH, HEIGHT))
 
-        # ตั้งค่าชื่อของหน้าต่างเกม ซึ่งจะแสดงที่แถบด้านบนของหน้าต่าง
+        # ชื่อเกม
         pg.display.set_caption("Good knight")
 
-        # ใช้สำหรับควบคุมความเร็วในการอัปเดตและการแสดงผลของเกม
+        # ตัวแปรเวลา
         self.clock = pg.time.Clock()
 
-        # ใช้สำหรับการตั้งค่าการทำซ้ำของการกดปุ่มคีย์บอร์ด เมื่อผู้ใช้กดปุ่มค้างไว้
-        pg.key.set_repeat(200, 200)  # (เวลารอตรวจจับกดปุ่มซ้ำหลังจากกดปุ่มค้างไว้, ตรวจจับว่ากดซ้ำเรื่อยๆในอีก...ตราบใดที่ยังกด)
+        # ตรวจการกดปุ่มค้างไว้
+        pg.key.set_repeat(200, 200)
 
-        # โค้ดอื่น ๆ ของ Player
+        # self.quests = []  # รายการเควสในเกม
+        self.collected_items = 0
+        self.current_quest = None
+        
+        
 
         self.backgrounds = {
     "map1.txt": "img/map1.png",
@@ -46,59 +52,45 @@ class Game:
             "map6.txt": {"up": None, "down": None, "left": None, "right": None}
         }
 
-        self.current_map = "map1.txt"  # กำหนดแมพเริ่มต้น
-        self.load_data()  # โหลดข้อมูลแมพ
+        # กำหนดแมพเริ่มต้น
+        self.current_map = "map1.txt"
+
+        # โหลดข้อมูลแมพ
+        self.load_data()
+        
+
     # -----------------------------------------------------------------------------------
 
-    def take_damage(self, amount):
-        self.health -= amount
-        if self.health <= 0:
-            self.health = 0
-            self.kill()  # ลบตัวละครออกเมื่อสุขภาพเหลือ 0
+    # โหลดข้อมูลพื้นฐานก่อนเริ่มเกม
+    def load_data(self):
 
-    def draw_health(self):
-        # กำหนดขนาดของหลอดเลือดให้เล็กลงเพื่อให้เหมาะกับขนาดตัวละคร
-        bar_length = 64  # ความยาวหลอดเลือดที่เล็กลง
-        bar_height = 8   # ความสูงหลอดเลือดที่เล็กลง
+        background_file = self.backgrounds.get(self.current_map)
+        if background_file:
+            self.background_image = pg.image.load(background_file).convert_alpha()
 
-        # ตำแหน่งของตัวละครที่ปรับตามกล้อง
-        player_pos = self.camera.apply(self.player).topleft
-
-        # คำนวณตำแหน่งของหลอดเลือดให้อยู่เหนือหัวของตัวละคร
-        x = player_pos[0]
-        y = player_pos[1] - 10  # ปรับตำแหน่ง y ให้เหมาะสมให้อยู่เหนือศีรษะ
-
-        # คำนวณความยาวของหลอดเลือดตามค่าเลือดที่เหลืออยู่
-        health_ratio = self.player.health / 100  # สมมติให้ค่าเลือดสูงสุดเป็น 100
-        health_bar_length = int(bar_length * health_ratio)
-
-        # วาดพื้นหลังของหลอดเลือด (สีเทา)
-        pg.draw.rect(self.scr_display, (255, 0, 0), (x, y, bar_length, bar_height))
-        # วาดหลอดเลือดตามค่าเลือดที่เหลือ (สีแดง)
-        pg.draw.rect(self.scr_display, (0, 255, 0), (x, y, health_bar_length, bar_height))
-
-    # Exit
-    def quit(self):
-        pg.quit()
-        sys.exit()
+        game_folder = path.dirname(__file__)
+        img_folder = path.join(game_folder, "img")
+        self.map = Map(path.join(game_folder, self.current_map))
+        self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
 
     def show_main_menu(self):
         # โหลดภาพพื้นหลัง
         background_image = pg.image.load("img/menubg2.png").convert()
-        background_image = pg.transform.scale(background_image, (WIDTH, HEIGHT))  # ปรับขนาดภาพให้พอดีกับหน้าต่าง
 
-        font = pg.font.Font(None, 50)
-        button_color = (100, 100, 250)
-        hover_color = (150, 150, 255)
-        animate_scale = 1.1  # สัดส่วนการขยายเมื่อเมาส์วางบนปุ่ม
+        ### ปุ่ม ###
+        font = pg.font.Font(None, 50)   # ขนาดตัวอักษร
+        # สี r g b
+        button_color = (255, 255, 255)  # สีข้อความในปุ่ม
+        hover_color = (235, 230, 150)   # สีพื้นหลังของปุ่ม
+        animate_scale = 1.1 # สัดส่วนการขยายเมื่อเมาส์วางบนปุ่ม
 
-        # ปรับตำแหน่งปุ่มให้อยู่มุมซ้ายบน
-        start_button = pg.Rect(300, 125, 250, 70)          # ปุ่ม Start
-        option_button = pg.Rect(300, 240, 250, 70)        # ปุ่ม Option
-        exit_button = pg.Rect(300, 355, 250, 70)          # ปุ่ม Exit
+        # ตำแหน่ง x,y ขนาด x,y ของปุ่ม
+        start_button = pg.Rect(300, 125, 250, 70)   # ปุ่ม Start
+        option_button = pg.Rect(300, 240, 250, 70)  # ปุ่ม Option
+        exit_button = pg.Rect(300, 355, 250, 70)    # ปุ่ม Exit
 
         while True:
-            # วาดภาพพื้นหลัง
+            # วาดภาพพื้นหลัง มุมซ้ายตำแหน่ง 0 0
             self.scr_display.blit(background_image, (0, 0))
 
             # ตรวจสอบตำแหน่งของเมาส์
@@ -130,8 +122,75 @@ class Game:
                     elif exit_button.collidepoint(event.pos):
                         self.quit()
 
+            # update จอ
             pg.display.flip()
             self.clock.tick(FPS)
+
+
+    def quit(self):
+        pg.quit()
+        sys.exit()
+
+    def new(self):
+        # รีเซ็ตกลุ่ม Sprite
+        self.all_sprites = pg.sprite.Group()
+        self.walls = pg.sprite.Group()
+        self.enemies = pg.sprite.Group()
+        self.npcs = pg.sprite.Group()
+
+        # เพิ่ม NPC จาก NPC_DATA
+        if self.current_map in NPC_DATA:
+            for npc_info in NPC_DATA[self.current_map]:
+                npc = NPC(self, npc_info["x"], npc_info["y"], npc_info["image_paths"], npc_info["text"])
+                self.all_sprites.add(npc)
+                self.npcs.add(npc)
+
+        # เพิ่มกำแพง ผู้เล่น ศัตรู และมอนสเตอร์จากข้อมูล map.txt
+        for row, tiles in enumerate(self.map.data):
+            for col, tile in enumerate(tiles):
+                if tile == "1":
+                    Wall(self, col, row)
+                if tile == "P":
+                    self.player = Player(self, col, row)
+                if tile == "E":
+                    enemy = Enemy(self, col, row)
+                    self.all_sprites.add(enemy)
+                    self.enemies.add(enemy)
+                if tile == "M":
+                    monster = Enemy(self, col, row)  # ใช้คลาส Enemy สำหรับมอนสเตอร์
+                    self.all_sprites.add(monster)
+                    self.enemies.add(monster)
+
+        # ตั้งค่ากล้อง
+        self.camera = Camera(self.map.width, self.map.height)
+        self.camera.update(self.player)
+
+    def take_damage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.health = 0
+            self.kill()  # ลบตัวละครออกเมื่อสุขภาพเหลือ 0
+
+    def draw_health(self):
+        # กำหนดขนาดของหลอดเลือดให้เล็กลงเพื่อให้เหมาะกับขนาดตัวละคร
+        bar_length = 64  # ความยาวหลอดเลือดที่เล็กลง
+        bar_height = 8   # ความสูงหลอดเลือดที่เล็กลง
+
+        # ตำแหน่งของตัวละครที่ปรับตามกล้อง
+        player_pos = self.camera.apply(self.player).topleft
+
+        # คำนวณตำแหน่งของหลอดเลือดให้อยู่เหนือหัวของตัวละคร
+        x = player_pos[0]
+        y = player_pos[1] - 10  # ปรับตำแหน่ง y ให้เหมาะสมให้อยู่เหนือศีรษะ
+
+        # คำนวณความยาวของหลอดเลือดตามค่าเลือดที่เหลืออยู่
+        health_ratio = self.player.health / 100  # สมมติให้ค่าเลือดสูงสุดเป็น 100
+        health_bar_length = int(bar_length * health_ratio)
+
+        # วาดพื้นหลังของหลอดเลือด (สีแดง)
+        pg.draw.rect(self.scr_display, (255, 0, 0), (x, y, bar_length, bar_height))
+        # วาดหลอดเลือดตามค่าเลือดที่เหลือ (สีเขียว)
+        pg.draw.rect(self.scr_display, (0, 255, 0), (x, y, health_bar_length, bar_height))
 
     def draw_text(self, text, font, color, x, y):
         text_obj = font.render(text, True, color)
@@ -139,11 +198,11 @@ class Game:
         self.scr_display.blit(text_obj, text_rect)
 
     def is_level_complete(self):
-        # ตัวอย่างเงื่อนไข: ไม่มีศัตรูเหลืออยู่ในด่าน
+        # เงื่อนไข: ไม่มีศัตรูเหลืออยู่ในด่าน
         if not any(enemy in self.all_sprites for enemy in self.enemies):
             # ตรวจสอบว่าศัตรูเหลืออยู่หรือไม่
             return not self.enemies
-        # ตัวอย่างเงื่อนไข: ผู้เล่นถึงจุดหมาย
+        # เงื่อนไข: ผู้เล่นถึงจุดหมาย
         # if self.player.rect.colliderect(self.goal_rect):
         #     return True
         return False
@@ -205,23 +264,12 @@ class Game:
             pg.display.flip()  # อัปเดตหน้าจอ
             self.clock.tick(FPS)  # ปรับความเร็วในการแสดงผลเฟรม
 
-    def load_next_map(self):
+    def load_next_map(self): 
         # เช็คว่ามีแมพต่อไปหรือไม่
         if self.current_map_index < len(self.map_files) - 1:
             self.current_map_index += 1  # เปลี่ยนไปที่แมพถัดไป
             self.load_data()  # โหลดข้อมูลของแมพใหม่
             self.new()  # เรียกใช้งาน method เพื่อรีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
-
-    def load_data(self):
-
-        background_file = self.backgrounds.get(self.current_map)
-        if background_file:
-            self.background_image = pg.image.load(background_file).convert_alpha()
-
-        game_folder = path.dirname(__file__)
-        img_folder = path.join(game_folder, "img")
-        self.map = Map(path.join(game_folder, self.current_map))
-        self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
 
     def load_map_in_direction(self, direction):
         # ตรวจสอบว่าทิศทางนี้มีแมพหรือไม่
@@ -232,25 +280,35 @@ class Game:
             self.new()  # รีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
 
     def draw_npc_text(self):
-        font = pg.font.Font(None, 30)
-        for npc in self.npcs:
-            if npc.display_message:
-                self.draw_text(npc.text, font, (255, 255, 255), npc.rect.x, npc.rect.y - 20)
+        font_path = path.join("font", "THSarabunNew.ttf")
+        font = pg.font.Font(font_path, 30)
 
-    # method วาดตารางกริด
-    def draw_grid(self):
-        for x in range(0, WIDTH, TILESIZE):
-            pg.draw.line(self.scr_display, LIGHTGREY, (x,0), (x, HEIGHT))
-        for y in range(0, HEIGHT, TILESIZE):
-            pg.draw.line(self.scr_display, LIGHTGREY, (0,y), (WIDTH, y))
+        # วนลูป NPC ในกลุ่ม self.npcs
+        for npc in self.npcs:
+            if npc.display_message:  # เช็คเฉพาะ NPC ที่กำลังแสดงข้อความ
+                text_surface = font.render(npc.text, True, (0, 0, 0))
+                text_rect = text_surface.get_rect(midbottom=(npc.rect.centerx, npc.rect.top - 10))
+
+                # วาดพื้นหลังของข้อความ
+                padding = 10
+                bg_rect = pg.Rect(
+                    text_rect.left - padding,
+                    text_rect.top - padding,
+                    text_rect.width + (padding * 2),
+                    text_rect.height + (padding * 2)
+                )
+                pg.draw.rect(self.scr_display, (255, 255, 255), bg_rect)  # วาดพื้นหลังสีขาว
+                pg.draw.rect(self.scr_display, (0, 0, 0), bg_rect, 2)  # เส้นขอบสีดำ
+
+                # วาดข้อความ
+                self.scr_display.blit(text_surface, text_rect)
+
 
     # method แสดงผล
     def draw(self):
         # แสดงผล background และ sprite อื่นๆ
         if self.background_image:
             self.scr_display.blit(self.background_image, self.camera.apply_rect(self.background_image.get_rect()))
-
-        self.draw_grid()  # วาดตารางกริดบนหน้าจอ
 
         self.draw_npc_text()    # แสดงข้อความของ NPC เมื่อผู้เล่นเข้าใกล้
 
@@ -273,21 +331,15 @@ class Game:
 
     # method อีเวนท์ต่างๆ
     def events(self):
-
-        # กดกาที่แถบด้านบนของหน้าต่างเพื่อออกเกม
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                self.quit() # เรียกใช้งาน method ออกเกม
-
-            # เมื่อกดปุ่มอะไรบางอย่างจะเริ่มทำงาน
+                self.quit()
             if event.type == pg.KEYDOWN:
-
-                if event.key == pg.K_ESCAPE:    # กด Esc เพื่อออกเกม
-                    self.quit()                 # เรียกใช้งาน method ออกเกม
+                if event.key == pg.K_ESCAPE:
+                    self.quit()
 
     # --------------------- สร้าง method run สำหรับรันเกม  ---------------------
     def run(self):
-
         # ตราบใดที่ self.playing = True เกมก็จะยังทำงาน
         self.playing = True
         while self.playing:
@@ -295,7 +347,6 @@ class Game:
             self.events()
             self.update()
             self.draw()
-
             # ตรวจสอบว่าผู้เล่นผ่านด่านที่ 6 แล้วหรือไม่
             if self.current_map == "map6.txt" and not any(self.all_sprites):
                 self.show_ending_scene()
@@ -311,45 +362,10 @@ class Game:
             self.load_data()  # โหลดข้อมูลแผนที่ใหม่
             self.new()  # เรียกใช้งาน method new เพื่อรีเซ็ตกลุ่ม sprite สำหรับแผนที่ใหม่
 
-    def new(self):
-        # initialize all variables and do all the setup for a new game
-
-        # สร้างกลุ่มของสไปร์ททั้งหมด จะเก็บวัตถุที่เป็นสไปร์ททั้งหมดที่เราต้องการ
-        self.all_sprites = pg.sprite.Group()
-        self.walls = pg.sprite.Group()
-        self.enemies = pg.sprite.Group()  # เริ่มต้นกลุ่มศัตรู
-        self.npcs = pg.sprite.Group()  # กลุ่มสำหรับ NPC
-
-        if self.current_map in NPC_DATA:
-            for npc_info in NPC_DATA[self.current_map]:
-                # สร้าง NPC จากข้อมูลใน NPC_DATA
-                npc = NPC(self, npc_info["x"], npc_info["y"], npc_info["image"], npc_info["text"])
-                self.all_sprites.add(npc)
-                self.npcs.add(npc)
-
-        for row, tiles in enumerate(self.map.data):
-            for col, tile in enumerate(tiles):
-                if tile == "1":
-                    Wall(self, col, row)
-                if tile == "P": # ตำแหน่งเกิดผู้เล่น
-                    self.player = Player(self, col, row)
-                if tile == "E":  # ตำแหน่งของศัตรู
-                    enemy = Enemy(self, col, row)
-                    self.all_sprites.add(enemy)
-                    self.enemies.add(enemy)
-
-        self.camera = Camera(self.map.width, self.map.height)
-        
-        
 # -----------------------------------------------------------------------------------------------
 
-# ------------------ ส่วนของการรันเกม ------------------
-# เช็คว่าชื่อโมดูลปัจจุบัน (__name__) มีค่าเป็น '__main__' หรือไม่
-# ถ้าใช่ แสดงว่าไฟล์นี้ถูกเรียกใช้โดยตรง
 if __name__ == '__main__':
-    game = Game()   # สร้าง object game จาก class Game
+    game = Game()
     game.show_main_menu()
     game.new()
     game.run()
-
-# ----------------------------------------------------

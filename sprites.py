@@ -1,21 +1,19 @@
 import pygame as pg
+import random
 from settings import *
 vec = pg.math.Vector2
 
 # ----------------------------- Player Class -----------------------------
 class Player(pg.sprite.Sprite):
     def __init__(self, game, x, y):
-        # กำหนดกลุ่มสไปร์ทที่ผู้เล่นจะถูกเพิ่มเข้าไป
         self.groups = game.all_sprites
-        pg.sprite.Sprite.__init__(self, self.groups)  # เพิ่มตัว Player เข้ากลุ่มสไปร์ท
-        self.game = game  # เก็บข้อมูลอ้างอิงถึงอ็อบเจกต์เกมหลัก
-        self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image = pg.image.load('img/player.png').convert_alpha()    # เพิ่มรูปตัวละคร
-        self.rect = self.image.get_rect()  # สร้างสี่เหลี่ยมล้อมรอบพื้นผิว
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.image.load('img/player.png').convert_alpha()
+        self.rect = self.image.get_rect()
         self.vel = vec(0, 0)
         self.pos = vec(x, y) * TILESIZE
-        self.game = game
-        self.health = 100  # กำหนดค่าเลือดเริ่มต้นเป็น 100
+        self.health = 100
 
     def get_keys(self):
         self.vel = vec(0, 0)
@@ -28,14 +26,36 @@ class Player(pg.sprite.Sprite):
             self.vel.y = -PLAYER_SPEED
         if keys[pg.K_DOWN] or keys[pg.K_s]:
             self.vel.y = PLAYER_SPEED
+        if keys[pg.K_SPACE]:  # กด Space เพื่อโจมตี
+            self.attack()
         if self.vel.x != 0 and self.vel.y != 0:
             self.vel *= 0.7071
 
-    def move(self, dx=0, dy=0):
-        # ฟังก์ชันเคลื่อนที่ตามค่าที่ส่งเข้ามา ถ้าไม่ชนกับกำแพง
-        if not self.collide_with_walls(dx, dy):
-            self.x += dx
-            self.y += dy
+    def update(self):
+        self.get_keys()
+        self.pos += self.vel * self.game.dt
+        self.rect.x = self.pos.x
+        self.collide_with_walls("x")
+        self.rect.y = self.pos.y
+        self.collide_with_walls("y")
+
+        # ตรวจสอบการตาย
+        if self.health <= 0:
+            self.die()
+
+        # การตรวจสอบการข้ามขอบของแผนที่
+        if self.rect.right >= self.game.map.width:
+            self.game.load_map_in_direction("right")
+            self.pos = vec(0, self.pos.y)
+        elif self.rect.left <= 0:
+            self.game.load_map_in_direction("left")
+            self.pos = vec(self.game.map.width - self.rect.width, self.pos.y)
+        elif self.rect.top <= 0:
+            self.game.load_map_in_direction("up")
+            self.pos = vec(self.pos.x, self.game.map.height - self.rect.height)
+        elif self.rect.bottom >= self.game.map.height:
+            self.game.load_map_in_direction("down")
+            self.pos = vec(self.pos.x, 0)
 
     def collide_with_walls(self, dir):
         if dir == "x":
@@ -43,11 +63,10 @@ class Player(pg.sprite.Sprite):
             if hits:
                 if self.vel.x > 0:
                     self.pos.x = hits[0].rect.left - self.rect.width
-                if self.vel.x <0:
+                if self.vel.x < 0:
                     self.pos.x = hits[0].rect.right
                 self.vel.x = 0
                 self.rect.x = self.pos.x
-
         if dir == "y":
             hits = pg.sprite.spritecollide(self, self.game.walls, False)
             if hits:
@@ -58,83 +77,125 @@ class Player(pg.sprite.Sprite):
                 self.vel.y = 0
                 self.rect.y = self.pos.y
 
+    def attack(self):
+        # ตรวจสอบการโจมตีด้วยระยะใกล้ (เช่น 50 พิกเซล)
+        attack_range = 50
+        for enemy in self.game.enemies:
+            distance = self.pos.distance_to(enemy.pos)
+            if distance <= attack_range:
+                enemy.health -= 10  # ลดพลังชีวิตศัตรู
+                if enemy.health <= 0:
+                    enemy.kill()  # กำจัดศัตรูถ้าพลังชีวิตหมด
+
+    def die(self):
+        print("Player has died!")
+        self.game.show_main_menu()  # กลับไปยังเมนูหลัก หรือแสดงฉากจบ
+        self.kill()  # ลบ Player ออกจาก Sprite
+
+    def heal(self, amount):
+        self.health += amount
+        if self.health > 100:
+            self.health = 100
+            
     def take_damage(self, amount):
         self.health -= amount
         if self.health <= 0:
-            self.health = 0
-            self.kill()  # ลบตัวละครออกเมื่อสุขภาพเหลือ 0
-
-    def update(self):
-        self.get_keys()
-        self.pos += self.vel * self.game.dt
-        # อัปเดตตำแหน่งของผู้เล่นในกริดไปยังตำแหน่งจริงในพิกเซล
-        self.rect.x = self.pos.x
-        self.collide_with_walls("x")
-        self.rect.y = self.pos.y
-        self.collide_with_walls("y")
+            self.die()  # เรียกใช้ฟังก์ชัน die() เมื่อพลังชีวิตเหลือ 0
 
 
-        # ตรวจสอบว่าผู้เล่นถึงขอบของแมพในแต่ละทิศหรือไม่
-        if self.rect.right >= self.game.map.width:
-            self.game.load_map_in_direction("right")  # โหลดแมพทางขวา
-            self.pos = vec(0, self.pos.y)  # รีเซ็ตตำแหน่งผู้เล่นไปที่ขอบซ้ายของแมพใหม่
-        elif self.rect.left <= 0:
-            self.game.load_map_in_direction("left")  # โหลดแมพทางซ้าย
-            self.pos = vec(self.game.map.width - self.rect.width, self.pos.y)
-        elif self.rect.top <= 0:
-            self.game.load_map_in_direction("up")  # โหลดแมพทางบน
-            self.pos = vec(self.pos.x, self.game.map.height - self.rect.height)
-        elif self.rect.bottom >= self.game.map.height:
-            self.game.load_map_in_direction("down")  # โหลดแมพทางล่าง
-            self.pos = vec(self.pos.x, 0)
-
-# ------------------------------------------------------------------------
 
 # ------------------------------ Wall Class ------------------------------
 class Wall(pg.sprite.Sprite):
     def __init__(self, game, x, y):
-
-        # กำหนดกลุ่มสไปร์ทที่กำแพงจะถูกเพิ่มเข้าไป (ทั้ง all_sprites และ walls)
         self.groups = game.all_sprites, game.walls
-
-        pg.sprite.Sprite.__init__(self, self.groups)    # เพิ่มตัว Wall เข้ากลุ่มสไปร์ท
-
-        self.game = game    # เก็บข้อมูลอ้างอิงถึงอ็อบเจกต์เกมหลัก
-
-        self.image = pg.Surface((TILESIZE, TILESIZE), pg.SRCALPHA)   # สร้างพื้นผิวสี่เหลี่ยมขนาด 64 * 64 สำหรับกำแพง และทำให้จาง
-        #.image = pg.image.load('img/rock.png').convert_alpha() # ลงสีกำแพงล่องหนเป็นก้อนหิน
-        self.image.fill((0, 255, 0, 128))   # ลงสีให้กำแพงล่องหน ใส่ # เพื่อเอาออก
-        self.rect = self.image.get_rect()   # สร้างสี่เหลี่ยมล้อมรอบพื้นผิวเพื่อใช้งานหลายอย่างเช่น การตรวจจับการชนของวัตถุ
-
-        self.x = x  # ตำแหน่ง X ของกำแพงในกริด
-        self.y = y  # ตำแหน่ง Y ของกำแพงในกริด
-
-        # อัปเดตตำแหน่งกำแพงในพิกเซลโดยคูณตำแหน่งในกริดด้วยขนาด TILESIZE
-        self.rect.x = x * TILESIZE
-        self.rect.y = y * TILESIZE
-# ------------------------------------------------------------------------
-class NPC(pg.sprite.Sprite):
-    def __init__(self, game, x, y, image_path, text):
-        self._layer = 1  # ระดับชั้นของการวาด
-        self.groups = game.all_sprites, game.npcs  # เพิ่ม NPC ลงในกลุ่ม all_sprites และ npcs
         pg.sprite.Sprite.__init__(self, self.groups)
-
-        self.game = game
-        self.image = pg.image.load(image_path).convert_alpha()
-        self.image = pg.transform.scale(self.image, (TILESIZE, TILESIZE))
-
-        # กำหนดตำแหน่งของ NPC บนแผนที่
+        self.image = pg.Surface((TILESIZE, TILESIZE), pg.SRCALPHA)
+        #self.image.fill((0, 255, 0, 128))
         self.rect = self.image.get_rect()
         self.rect.x = x * TILESIZE
         self.rect.y = y * TILESIZE
 
-        self.text = text  # ข้อความที่จะให้แสดงเมื่อผู้เล่นอยู่ใกล้
-        self.display_message = False  # ควบคุมการแสดงข้อความ
+# ------------------------------ NPC Class ------------------------------
+class NPC(pg.sprite.Sprite):
+    def __init__(self, game, x, y, image_paths, text):
+        self._layer = 1
+        self.groups = game.all_sprites, game.npcs
+        pg.sprite.Sprite.__init__(self, self.groups)
+
+        self.game = game
+        self.images = [pg.image.load(image_path).convert_alpha() for image_path in image_paths]
+        self.current_frame = 0
+        self.last_update = pg.time.get_ticks()
+        self.frame_delay = 150  # ความหน่วงระหว่างเฟรม
+
+        self.image = self.images[self.current_frame]
+        self.rect = self.image.get_rect()
+        self.pos = vec(x, y) * TILESIZE
+        self.rect.topleft = self.pos
+        self.text = text  # ข้อความที่ NPC พูด
+        self.display_message = False  # กำหนดค่าเริ่มต้นว่าข้อความไม่แสดง
+        self.direction = vec(0, 0)  # ทิศทางการเคลื่อนไหวของ NPC
+        self.change_direction()
+
+
+
+    def change_direction(self):
+        directions = [vec(1, 0), vec(-1, 0), vec(0, 1), vec(0, -1), vec(0, 0)]
+        self.direction = random.choice(directions)
+        self.move_time = pg.time.get_ticks() + random.randint(1000, 3000)
 
     def update(self):
-            # ตรวจสอบระยะห่างระหว่างผู้เล่นและ NPC
-            distance = ((self.game.player.rect.x - self.rect.x) ** 2 + (self.game.player.rect.y - self.rect.y) ** 2) ** 0.5
-            if distance < 100:  # ระยะที่จะแสดงข้อความ สามารถปรับได้ตามต้องการ
-                self.display_message = True
-            else:
-                self.display_message = False
+        # อัปเดตเอนิเมชัน
+        now = pg.time.get_ticks()
+        if now - self.last_update > self.frame_delay:
+            self.last_update = now
+            self.current_frame = (self.current_frame + 1) % len(self.images)
+            self.image = self.images[self.current_frame]
+
+        # อัปเดตการเคลื่อนไหว
+        if now > self.move_time:
+            self.change_direction()
+        if self.direction:
+            self.pos += self.direction
+            self.rect.topleft = self.pos
+            if pg.sprite.spritecollideany(self, self.game.walls):
+                self.pos -= self.direction
+                self.change_direction()
+
+        # ตรวจสอบระยะห่างสำหรับการแสดงข้อความ
+        # ใน sprites.py ในคลาส NPC ในเมธอด update
+        distance = vec(self.game.player.rect.center).distance_to(vec(self.rect.center))
+
+        self.display_message = distance < 100
+        
+        
+
+# ------------------------------ Enemy Class ------------------------------
+class Enemy(pg.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites, game.enemies
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.image.load('img/mona.png').convert_alpha()  # ใช้รูปมอนสเตอร์
+        self.rect = self.image.get_rect()
+        self.pos = vec(x, y) * TILESIZE
+        self.rect.topleft = self.pos
+        self.health = 50  # กำหนดพลังชีวิตของมอนสเตอร์
+        self.speed = 20  # กำหนดความเร็ว
+
+    def update(self):
+        # ติดตามผู้เล่น
+        player_pos = self.game.player.pos
+        direction = (player_pos - self.pos).normalize() if player_pos != self.pos else vec(0, 0)
+        self.pos += direction * self.speed * self.game.dt
+        self.rect.topleft = self.pos
+
+        # ตรวจสอบการชนกับกำแพง
+        if pg.sprite.spritecollideany(self, self.game.walls):
+            self.pos -= direction * self.speed * self.game.dt
+            self.rect.topleft = self.pos
+
+        # ตรวจสอบการโจมตีผู้เล่น
+        if self.rect.colliderect(self.game.player.rect):
+            self.game.player.take_damage(0.1)  # ลดพลังชีวิตของผู้เล่น
+
