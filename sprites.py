@@ -9,29 +9,114 @@ class Player(pg.sprite.Sprite):
         self.groups = game.all_sprites
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.image.load('img/player.png').convert_alpha()
+        self.image = pg.image.load('img/player/player.png').convert_alpha()
+        self.images = {
+    "idle_down": [pg.image.load('img/player/idle_down.png').convert_alpha()],
+    "idle_up": [pg.image.load('img/player/idle_up.png').convert_alpha()],
+    "idle_left": [pg.image.load('img/player/idle_left.png').convert_alpha()],
+    "idle_right": [pg.image.load('img/player/idle_right.png').convert_alpha()],
+    "walk_left": [
+        pg.image.load('img/player/left_0.png').convert_alpha(),
+        pg.image.load('img/player/left_1.png').convert_alpha(),
+        pg.image.load('img/player/left_2.png').convert_alpha(),
+        pg.image.load('img/player/left_3.png').convert_alpha(),
+    ],
+    "walk_right": [
+        pg.image.load('img/player/right_0.png').convert_alpha(),
+        pg.image.load('img/player/right_1.png').convert_alpha(),
+        pg.image.load('img/player/right_2.png').convert_alpha(),
+        pg.image.load('img/player/right_3.png').convert_alpha(),
+    ],
+    "walk_up": [
+        pg.image.load('img/player/up_0.png').convert_alpha(),
+        pg.image.load('img/player/up_1.png').convert_alpha(),
+        pg.image.load('img/player/up_2.png').convert_alpha(),
+        pg.image.load('img/player/up_3.png').convert_alpha(),
+    ],
+    "walk_down": [
+        pg.image.load('img/player/down_0.png').convert_alpha(),
+        pg.image.load('img/player/down_1.png').convert_alpha(),
+        pg.image.load('img/player/down_2.png').convert_alpha(),
+        pg.image.load('img/player/down_3.png').convert_alpha(),
+    ],
+}
+
+
+        self.last_direction = "down"  # ตั้งค่าเริ่มต้นเป็นหันลง
+
+        self.image = self.images["idle_down"][0]
         self.rect = self.image.get_rect()
-        self.vel = vec(0, 0)
         self.pos = vec(x, y) * TILESIZE
+        self.vel = vec(0, 0)
         self.health = 100
 
+        # Animation properties
+        self.current_frame = 0
+        self.last_update = 0
+        self.frame_delay = 150  # Milliseconds between frames
+        self.current_animation = "idle"
+
+    def attack(self):
+        # ตรวจสอบว่ากำลังโจมตีอยู่หรือไม่
+        if "attack" in self.current_animation:
+            return
+
+        # กำหนดแอนิเมชันการโจมตี
+        self.current_animation = f"attack_{self.last_direction}"
+        self.current_frame = 0  # รีเซ็ตเฟรมของแอนิเมชัน
+
+        # สร้างดาบใหม่
+        sword = Sword(self.game, self)  # ใช้ last_direction เพื่อกำหนดทิศทาง
+        self.game.all_sprites.add(sword)
+
+        # ตรวจสอบการชนกับศัตรู
+        for enemy in self.game.enemies:
+            if sword.rect.colliderect(enemy.rect):
+                enemy.health -= 10
+                if enemy.health <= 0:
+                    enemy.kill()
+
+        # ตั้งเวลา cooldown
+        self.last_attack_time = pg.time.get_ticks()
+
+    def handle_events(self, event):
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                now = pg.time.get_ticks()
+                if now - getattr(self, "last_attack_time", 0) > 500:  # Cooldown 500 ms
+                    self.attack()
+
     def get_keys(self):
-        self.vel = vec(0, 0)
         keys = pg.key.get_pressed()
+
+        if "attack" in self.current_animation:
+            return  # หยุดตรวจสอบปุ่มเมื่ออยู่ในสถานะโจมตี
+
+        self.vel = vec(0, 0)
         if keys[pg.K_LEFT] or keys[pg.K_a]:
             self.vel.x = -PLAYER_SPEED
-        if keys[pg.K_RIGHT] or keys[pg.K_d]:
+            self.last_direction = "left"
+            self.current_animation = "walk_left"
+        elif keys[pg.K_RIGHT] or keys[pg.K_d]:
             self.vel.x = PLAYER_SPEED
-        if keys[pg.K_UP] or keys[pg.K_w]:
+            self.last_direction = "right"
+            self.current_animation = "walk_right"
+        elif keys[pg.K_UP] or keys[pg.K_w]:
             self.vel.y = -PLAYER_SPEED
-        if keys[pg.K_DOWN] or keys[pg.K_s]:
+            self.last_direction = "up"
+            self.current_animation = "walk_up"
+        elif keys[pg.K_DOWN] or keys[pg.K_s]:
             self.vel.y = PLAYER_SPEED
-        if keys[pg.K_SPACE]:  # กด Space เพื่อโจมตี
-            self.attack()
+            self.last_direction = "down"
+            self.current_animation = "walk_down"
+        else:
+            self.current_animation = f"idle_{self.last_direction}"  # ใช้ last_direction เมื่อยืนนิ่ง
+
         if self.vel.x != 0 and self.vel.y != 0:
-            self.vel *= 0.7071
+            self.vel *= 0.7071  # ลดความเร็วในกรณีเคลื่อนที่แนวทแยง
 
     def update(self):
+        # อัปเดตตำแหน่งของตัวละครจากการกดปุ่ม
         self.get_keys()
         self.pos += self.vel * self.game.dt
         self.rect.x = self.pos.x
@@ -39,11 +124,18 @@ class Player(pg.sprite.Sprite):
         self.rect.y = self.pos.y
         self.collide_with_walls("y")
 
+        # อัปเดตแอนิเมชัน
+        now = pg.time.get_ticks()
+        if now - self.last_update > self.frame_delay:
+            self.last_update = now
+            self.current_frame = (self.current_frame + 1) % len(self.images[self.current_animation])
+            self.image = self.images[self.current_animation][self.current_frame]
+
         # ตรวจสอบการตาย
         if self.health <= 0:
             self.die()
 
-        # การตรวจสอบการข้ามขอบของแผนที่
+        # ตรวจสอบการข้ามขอบแผนที่
         if self.rect.right >= self.game.map.width:
             self.game.load_map_in_direction("right")
             self.pos = vec(0, self.pos.y)
@@ -78,14 +170,19 @@ class Player(pg.sprite.Sprite):
                 self.rect.y = self.pos.y
 
     def attack(self):
-        # ตรวจสอบการโจมตีด้วยระยะใกล้ (เช่น 50 พิกเซล)
-        attack_range = 50
+        # เรียกใช้ดาบเพื่อโจมตี
+        sword = Sword(self.game, self)  # สร้างดาบใหม่
+        self.game.all_sprites.add(sword)  # เพิ่มดาบลงในกลุ่ม Sprite
+
+        # ตรวจสอบการโจมตีศัตรู
         for enemy in self.game.enemies:
-            distance = self.pos.distance_to(enemy.pos)
-            if distance <= attack_range:
+            if sword.rect.colliderect(enemy.rect):
                 enemy.health -= 10  # ลดพลังชีวิตศัตรู
                 if enemy.health <= 0:
-                    enemy.kill()  # กำจัดศัตรูถ้าพลังชีวิตหมด
+                    enemy.kill()  # ลบศัตรูที่พลังชีวิตหมด
+
+        # Cooldown สำหรับการโจมตี
+        self.last_attack_time = pg.time.get_ticks()
 
     def die(self):
         print("Player has died!")
@@ -199,3 +296,77 @@ class Enemy(pg.sprite.Sprite):
         if self.rect.colliderect(self.game.player.rect):
             self.game.player.take_damage(0.1)  # ลดพลังชีวิตของผู้เล่น
 
+        # ลบศัตรูที่พลังชีวิต <= 0 และอัปเดตกลุ่ม enemies
+        if self.health <= 0:
+            self.kill()
+            self.game.enemies.remove(self)  # ลบจากกลุ่ม enemies
+
+class Sword(pg.sprite.Sprite):
+    def __init__(self, game, owner):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.owner = owner
+
+        # โหลดภาพดาบในแต่ละทิศทาง
+        self.images = {
+            "left": pg.image.load('img/left.png').convert_alpha(),
+            "right": pg.image.load('img/right.png').convert_alpha(),
+            "up": pg.image.load('img/up.png').convert_alpha(),
+            "down": pg.image.load('img/down.png').convert_alpha(),
+        }
+
+        # กำหนดภาพดาบตามทิศทางเริ่มต้น
+        self.image = self.images["down"]
+        self.rect = self.image.get_rect()
+
+        # ระยะเวลาที่ดาบจะคงอยู่
+        self.attack_time = pg.time.get_ticks()
+        self.attack_duration = 300  # ระยะเวลาโจมตี (300 มิลลิวินาที)
+
+        # เพิ่มตัวแปรเพื่อเก็บศัตรูที่ถูกโจมตีแล้ว
+        self.attacked_enemies = []  # ตัวแปรนี้จะเก็บรายชื่อศัตรูที่ดาบได้โจมตีไปแล้ว
+
+        # อัปเดตตำแหน่งดาบ
+        self.update_position()
+
+    def update_position(self):
+        # ปรับตำแหน่งและภาพดาบตามทิศทางของผู้เล่น
+        direction = self.owner.last_direction
+        self.image = self.images[direction]
+
+        # ตั้ง offset สำหรับปรับตำแหน่งดาบให้เหมาะสม
+        offset_x = 0
+        offset_y = 0
+
+        if direction == "left":
+            self.rect.midright = self.owner.rect.midleft
+            offset_x = -10
+        elif direction == "right":
+            self.rect.midleft = self.owner.rect.midright
+            offset_x = 10
+        elif direction == "up":
+            self.rect.midbottom = self.owner.rect.midtop
+            offset_y = -10
+        elif direction == "down":
+            self.rect.midtop = self.owner.rect.midbottom
+            offset_y = 10
+
+        self.rect.x += offset_x
+        self.rect.y += offset_y
+
+    def update(self):
+        # อัปเดตตำแหน่งดาบทุกเฟรม
+        self.update_position()
+
+        # ตรวจสอบการชนกับศัตรู
+        for enemy in self.game.enemies:
+            if enemy not in self.attacked_enemies and self.rect.colliderect(enemy.rect):
+                self.attacked_enemies.append(enemy)  # เพิ่มศัตรูที่ถูกโจมตีในลิสต์
+                enemy.health -= 10  # ลดพลังชีวิตศัตรู
+                if enemy.health <= 0:
+                    enemy.kill()  # ลบศัตรูออกจากเกม
+
+        # ลบดาบเมื่อระยะเวลาโจมตีสิ้นสุด
+        if pg.time.get_ticks() - self.attack_time > self.attack_duration:
+            self.kill()

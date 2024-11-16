@@ -92,26 +92,6 @@ NPC_DATA = {
     ],
     
     
-    
-    
-    
-    "map4.txt": [
-        {
-            "x": 15,
-            "y": 10,
-            "image_paths": ["img/npca3.png", "img/npca4.png", "img/npca5.png", "img/npca2.png"],
-            "text": "This path is dangerous."
-        },
-        {
-            "x": 15,
-            "y": 18,
-            "image_paths": ["img/npcd3.png", "img/npcd4.png", "img/npcd5.png", "img/npcd2.png"],
-            "text": "Stay strong, hero!"
-        }
-    ],
-    
-    
-    
     "map6.txt": [
         {
             "x": 15,

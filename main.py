@@ -39,7 +39,7 @@ class Game:
     "map3.txt": "img/map3.png",
     "map4.txt": "img/map4.png",
     "map5.txt": "img/map5.png",
-    "map6.txt": "img/map6.png"
+    
 }
 
         # กำหนดแผนที่แต่ละทิศทาง
@@ -48,8 +48,7 @@ class Game:
             "map2.txt": {"up": None, "down": "map3.txt", "left": None, "right": None},
             "map3.txt": {"up": "map2.txt", "down": "map4.txt", "left": None, "right": None},
             "map4.txt": {"up": None, "down": None, "left": None, "right": "map5.txt"},
-            "map5.txt": {"up": "map6.txt", "down": None, "left": None, "right": None},
-            "map6.txt": {"up": None, "down": None, "left": None, "right": None}
+            "map5.txt": {"up": "map6.txt", "down": None, "left": None, "right": None}
         }
 
         # กำหนดแมพเริ่มต้น
@@ -112,15 +111,16 @@ class Game:
             self.draw_text("Option", font, (0, 0, 0), option_button.centerx, option_button.centery)
             self.draw_text("Exit", font, (0, 0, 0), exit_button.centerx, exit_button.centery)
 
-            # ตรวจสอบเหตุการณ์คลิก
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self.quit()
                 elif event.type == pg.MOUSEBUTTONDOWN:
                     if start_button.collidepoint(event.pos):
-                        return  # เริ่มเกม
+                        self.new()  # เริ่มเกมใหม่
+                        return
                     elif exit_button.collidepoint(event.pos):
                         self.quit()
+
 
             # update จอ
             pg.display.flip()
@@ -216,7 +216,7 @@ class Game:
             u"ท่านผู้กล้า ท่านช่างกล้าหาญยิ่งนัก.",
             u"ความสงบสุขได้กลับมาสู่อาณาจักร ด้วยฝีมือของท่าน.",
             u"พระราชาและประชาชนทุกคนต่างสำนึกในบุญคุณของท่าน.",
-            u"การผจญภัยได้สิ้นสุดลงแล้ว แต่ตำนานของท่านจะคงอยู่ตลอดไป.",
+            u"การผจญภัยได้สิ้นสุดลงแล้ว แต่ตำนานของท่านจะคงอยู่.",
             u"ขอบคุณที่ร่วมเล่นเกมนี้!"
         ]
 
@@ -261,6 +261,17 @@ class Game:
             text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 45))  # จุดแสดงผลของข้อความ
             self.scr_display.blit(text_surface, text_rect)
 
+            
+            # ตรวจจับเหตุการณ์
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.quit()
+                elif event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                    # หากกด Enter ให้ข้ามไปหน้าเมนู
+                    self.reset_game()  # รีเซ็ตสถานะเกมหลังจบคัทซีน
+                    self.show_main_menu()
+                    return
+                
             pg.display.flip()  # อัปเดตหน้าจอ
             self.clock.tick(FPS)  # ปรับความเร็วในการแสดงผลเฟรม
 
@@ -272,37 +283,37 @@ class Game:
             self.new()  # เรียกใช้งาน method เพื่อรีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
 
     def load_map_in_direction(self, direction):
-        # ตรวจสอบว่าทิศทางนี้มีแมพหรือไม่
+    # ตรวจสอบว่าทิศทางนี้มีแผนที่หรือไม่
         next_map = self.map_files[self.current_map].get(direction)
         if next_map:
-            self.current_map = next_map  # เปลี่ยนแมพปัจจุบันเป็นแมพถัดไปในทิศทางที่ระบุ
+            self.current_map = next_map  # เปลี่ยนแผนที่ปัจจุบันเป็นแผนที่ถัดไปในทิศทางที่ระบุ
             self.load_data()
-            self.new()  # รีเซ็ตกลุ่ม sprite สำหรับแมพใหม่
+            self.new()  # รีเซ็ตกลุ่ม sprite สำหรับแผนที่ใหม่
 
     def draw_npc_text(self):
-        font_path = path.join("font", "THSarabunNew.ttf")
+        font_path = path.join("font", "THSarabunNew.ttf")  # ฟอนต์ภาษาไทย
         font = pg.font.Font(font_path, 30)
 
-        # วนลูป NPC ในกลุ่ม self.npcs
         for npc in self.npcs:
-            if npc.display_message:  # เช็คเฉพาะ NPC ที่กำลังแสดงข้อความ
+            if npc.display_message:  # NPC กำลังแสดงข้อความ
                 text_surface = font.render(npc.text, True, (0, 0, 0))
-                text_rect = text_surface.get_rect(midbottom=(npc.rect.centerx, npc.rect.top - 10))
+                # ตำแหน่งข้อความสัมพันธ์กับกล้อง
+                npc_screen_pos = self.camera.apply(npc)
+                text_rect = text_surface.get_rect(midbottom=(npc_screen_pos.centerx, npc_screen_pos.top - 10))
 
-                # วาดพื้นหลังของข้อความ
+                # วาดพื้นหลังข้อความ
                 padding = 10
                 bg_rect = pg.Rect(
                     text_rect.left - padding,
                     text_rect.top - padding,
-                    text_rect.width + (padding * 2),
-                    text_rect.height + (padding * 2)
+                    text_rect.width + padding * 2,
+                    text_rect.height + padding * 2
                 )
-                pg.draw.rect(self.scr_display, (255, 255, 255), bg_rect)  # วาดพื้นหลังสีขาว
-                pg.draw.rect(self.scr_display, (0, 0, 0), bg_rect, 2)  # เส้นขอบสีดำ
+                pg.draw.rect(self.scr_display, (255, 255, 255), bg_rect)
+                pg.draw.rect(self.scr_display, (0, 0, 0), bg_rect, 2)
 
                 # วาดข้อความ
                 self.scr_display.blit(text_surface, text_rect)
-
 
     # method แสดงผล
     def draw(self):
@@ -324,19 +335,33 @@ class Game:
         self.all_sprites.update()
         self.camera.update(self.player)  # อัปเดตตำแหน่งของกล้องตามผู้เล่น
 
-        # เพิ่มเงื่อนไขการจบด่าน 6
-        if self.current_map == "map6.txt" and self.is_level_complete():
+        # หากจบเกมในด่านสุดท้าย ให้กลับไปหน้าเมนูและรีเซ็ตแผนที่ใหม่
+        if self.current_map == "map5.txt" and self.is_level_complete():
             self.show_ending_scene()
-            self.quit()
+            self.reset_game()
+            self.show_main_menu()
+            return
 
-    # method อีเวนท์ต่างๆ
-    def events(self):
+
+    def reset_game(self):
+        
+        self.current_map = "map1.txt"  # กำหนดแผนที่เริ่มต้นใหม่
+        # self.collected_items = 0  # รีเซ็ตจำนวนไอเทมที่เก็บ
+        # self.current_quest = None  # รีเซ็ตเควส
+        if hasattr(self, "player"):  # ตรวจสอบว่ามีผู้เล่นในเกม
+            self.player.health = 100  # รีเซ็ตค่าพลังชีวิตของผู้เล่น
+        self.load_data()  # โหลดข้อมูลแผนที่ใหม่
+
+
+        # method อีเวนท์ต่างๆ
+    def events(self): 
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 self.quit()
-            if event.type == pg.KEYDOWN:
+            elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     self.quit()
+                self.player.handle_events(event)  # เรียกใช้อีเวนต์ของผู้เล่น
 
     # --------------------- สร้าง method run สำหรับรันเกม  ---------------------
     def run(self):
@@ -350,7 +375,7 @@ class Game:
             # ตรวจสอบว่าผู้เล่นผ่านด่านที่ 6 แล้วหรือไม่
             if self.current_map == "map6.txt" and not any(self.all_sprites):
                 self.show_ending_scene()
-                self.quit()  # ออกจากเกมหลังจากแสดงฉากจบเสร็จ
+                return  # กลับไปหน้าเมนูหลังฉากจบ
 
     # ----------------------------------------------------------------------
 
@@ -368,4 +393,4 @@ if __name__ == '__main__':
     game = Game()
     game.show_main_menu()
     game.new()
-    game.run()
+    game.run()  
