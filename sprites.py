@@ -370,3 +370,59 @@ class Sword(pg.sprite.Sprite):
         # ลบดาบเมื่อระยะเวลาโจมตีสิ้นสุด
         if pg.time.get_ticks() - self.attack_time > self.attack_duration:
             self.kill()
+
+class FinalBoss(pg.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites, game.enemies
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.image.load('img/monster102x.png').convert_alpha()
+        self.rect = self.image.get_rect()
+        self.pos = vec(x, y) * TILESIZE
+        self.rect.center = self.pos
+        self.health = 350  # จำนวนครั้งที่ต้องโจมตีบอสเพื่อฆ่า
+        self.attack_cooldown = 2000  # ระยะเวลาระหว่างการใช้สกิล (2 วินาที)
+        self.last_attack_time = pg.time.get_ticks()  # ตั้งค่าเริ่มต้นเป็นเวลาปัจจุบัน
+
+
+    def update(self):
+    # ตรวจสอบว่าถึงเวลาโจมตีหรือยัง
+        now = pg.time.get_ticks()
+        if now - self.last_attack_time > self.attack_cooldown:
+            self.use_skill()  # ใช้สกิลของบอส
+            self.last_attack_time = now  # อัปเดตเวลาครั้งล่าสุดที่โจมตี
+
+
+    def use_skill(self):
+        # สร้างพื้นที่โจมตี (เช่น วาดวงกลมสีแดงบนหน้าจอ)
+        explosion = Explosion(self.game, self.rect.center)
+        self.game.all_sprites.add(explosion)
+        # ตรวจสอบการชนกับผู้เล่น
+        if self.game.player.rect.colliderect(explosion.rect):
+            self.game.player.take_damage(20)  # ลดพลังชีวิตผู้เล่น
+
+    def take_damage(self):
+        self.health -= 1
+        if self.health <= 0:
+            self.die()
+
+    def die(self):
+        print("Final Boss Defeated!")
+        self.kill()
+
+class Explosion(pg.sprite.Sprite):
+    def __init__(self, game, center):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface((100, 100), pg.SRCALPHA)  # วาดพื้นที่โจมตี
+        pg.draw.circle(self.image, (255, 0, 0, 128), (50, 50), 50)  # วงกลมสีแดง
+        self.rect = self.image.get_rect()
+        self.rect.center = center
+        self.spawn_time = pg.time.get_ticks()
+
+    def update(self):
+        # ลบพื้นที่โจมตีหลังจาก 500 มิลลิวินาที
+        if pg.time.get_ticks() - self.spawn_time > 500:
+            self.kill()
+

@@ -7,6 +7,7 @@ from settings import *
 from tilemap1 import *
 from sprites import NPC  # นำเข้า NPC จากไฟล์ sprites.py
 from npc_data import NPC_DATA
+from sprites import FinalBoss
 
 # สร้างคลาสเกม
 class Game:
@@ -160,6 +161,11 @@ class Game:
                     monster = Enemy(self, col, row)  # ใช้คลาส Enemy สำหรับมอนสเตอร์
                     self.all_sprites.add(monster)
                     self.enemies.add(monster)
+                if self.current_map == "map5.txt":
+                    boss = FinalBoss(self, 28, 6)  # ตำแหน่ง x, y ของบอส
+                    self.all_sprites.add(boss)
+                    self.enemies.add(boss)
+
 
         # ตั้งค่ากล้อง
         self.camera = Camera(self.map.width, self.map.height)
@@ -336,11 +342,11 @@ class Game:
         self.camera.update(self.player)  # อัปเดตตำแหน่งของกล้องตามผู้เล่น
 
         # หากจบเกมในด่านสุดท้าย ให้กลับไปหน้าเมนูและรีเซ็ตแผนที่ใหม่
-        if self.current_map == "map5.txt" and self.is_level_complete():
+        if self.current_map == "map5.txt" and not any(enemy for enemy in self.enemies if isinstance(enemy, FinalBoss)):
             self.show_ending_scene()
             self.reset_game()
             self.show_main_menu()
-            return
+
 
 
     def reset_game(self):
