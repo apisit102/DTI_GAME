@@ -173,7 +173,7 @@ class Player(pg.sprite.Sprite):
         # เรียกใช้ดาบเพื่อโจมตี
         sword = Sword(self.game, self)  # สร้างดาบใหม่
         self.game.all_sprites.add(sword)  # เพิ่มดาบลงในกลุ่ม Sprite
-
+        self.game.sword_sound.play()
         # ตรวจสอบการโจมตีศัตรู
         for enemy in self.game.enemies:
             if sword.rect.colliderect(enemy.rect):
@@ -198,6 +198,8 @@ class Player(pg.sprite.Sprite):
         self.health -= amount
         if self.health <= 0:
             self.die()  # เรียกใช้ฟังก์ชัน die() เมื่อพลังชีวิตเหลือ 0
+        else:
+            self.game.boss_hit_sound.play()
 
 
 
@@ -223,16 +225,59 @@ class NPC(pg.sprite.Sprite):
         self.images = [pg.image.load(image_path).convert_alpha() for image_path in image_paths]
         self.current_frame = 0
         self.last_update = pg.time.get_ticks()
-        self.frame_delay = 150  # ความหน่วงระหว่างเฟรม
+        self.frame_delay = 150  # เวลาในการเปลี่ยนเฟรม (มิลลิวินาที)
 
         self.image = self.images[self.current_frame]
         self.rect = self.image.get_rect()
         self.pos = vec(x, y) * TILESIZE
         self.rect.topleft = self.pos
         self.text = text  # ข้อความที่ NPC พูด
-        self.display_message = False  # กำหนดค่าเริ่มต้นว่าข้อความไม่แสดง
+        self.display_message = False  # ค่าเริ่มต้น: ไม่แสดงข้อความ
+
         self.direction = vec(0, 0)  # ทิศทางการเคลื่อนไหวของ NPC
-        self.change_direction()
+        self.change_direction()  # สุ่มการเคลื่อนไหว
+
+    def change_direction(self):
+        """สุ่มทิศทางการเคลื่อนไหวของ NPC"""
+        directions = [vec(1, 0), vec(-1, 0), vec(0, 1), vec(0, -1), vec(0, 0)]  # รวมทิศทางที่ไม่เคลื่อนไหว
+        self.direction = random.choice(directions)
+        self.move_time = pg.time.get_ticks() + random.randint(2000, 5000)  # เปลี่ยนทิศทางทุก 2-5 วินาที
+
+    def update_animation(self):
+        """อัปเดตแอนิเมชันของ NPC"""
+        now = pg.time.get_ticks()
+        if now - self.last_update > self.frame_delay:
+            self.last_update = now
+            self.current_frame = (self.current_frame + 1) % len(self.images)
+            self.image = self.images[self.current_frame]
+
+    def interact(self):
+        """แสดงข้อความเมื่อผู้เล่นพูดคุยกับ NPC"""
+        print(f"NPC: {self.text}")  # อาจเปลี่ยนให้แสดงบนหน้าจอแทนการแสดงในคอนโซล
+
+    def update(self):
+        """อัปเดตสถานะของ NPC"""
+        # อัปเดตแอนิเมชัน
+        self.update_animation()
+
+        # อัปเดตการเคลื่อนไหว
+        now = pg.time.get_ticks()
+        if now > self.move_time:
+            self.change_direction()  # เปลี่ยนทิศทางเมื่อครบเวลา
+
+        if self.direction:
+            self.pos += self.direction * 0.5  # ความเร็วของ NPC (ปรับได้ตามต้องการ)
+            self.rect.topleft = self.pos
+
+            # หากชนกับกำแพง ให้เปลี่ยนทิศทาง
+            if pg.sprite.spritecollideany(self, self.game.walls):
+                self.pos -= self.direction * 0.5
+                self.change_direction()
+
+        # ตรวจสอบว่าผู้เล่นอยู่ใกล้ NPC หรือไม่
+        distance = vec(self.game.player.rect.center).distance_to(vec(self.rect.center))
+        self.display_message = distance < 100  # แสดงข้อความหากผู้เล่นอยู่ใกล้
+
 
 
 
@@ -380,26 +425,49 @@ class FinalBoss(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.pos = vec(x, y) * TILESIZE
         self.rect.center = self.pos
-        self.health = 350  # จำนวนครั้งที่ต้องโจมตีบอสเพื่อฆ่า
-        self.attack_cooldown = 2000  # ระยะเวลาระหว่างการใช้สกิล (2 วินาที)
-        self.last_attack_time = pg.time.get_ticks()  # ตั้งค่าเริ่มต้นเป็นเวลาปัจจุบัน
-
+        self.health = 350
+        self.attack_cooldown = 2000  # ระยะเวลาระหว่างการเริ่มโจมตีครั้งถัดไป
+        self.last_attack_time = pg.time.get_ticks()
+        self.attack_delay = 3000  # ดีเลย์ 3 วิก่อนโจมตี
+        self.attack_ready = False
+        self.pending_attack = None  # เก็บข้อมูลพื้นที่โจมตีที่เตรียมไว้
 
     def update(self):
-    # ตรวจสอบว่าถึงเวลาโจมตีหรือยัง
         now = pg.time.get_ticks()
-        if now - self.last_attack_time > self.attack_cooldown:
-            self.use_skill()  # ใช้สกิลของบอส
-            self.last_attack_time = now  # อัปเดตเวลาครั้งล่าสุดที่โจมตี
+        # ตรวจสอบว่าถึงเวลาเริ่มโจมตีใหม่หรือยัง
+        if not self.attack_ready and now - self.last_attack_time > self.attack_cooldown:
+            self.prepare_attack()  # เตรียมพื้นที่โจมตี
+            self.attack_ready = True  # สถานะพร้อมโจมตี
+            self.attack_start_time = now  # บันทึกเวลาที่เริ่มเตรียมโจมตี
+        
+        # หากเตรียมโจมตีแล้ว ให้รอครบดีเลย์เพื่อทำการโจมตีจริง
+        if self.attack_ready and now - self.attack_start_time > self.attack_delay:
+            self.execute_attack()  # ทำการโจมตี
+            self.last_attack_time = now  # บันทึกเวลาที่โจมตีเสร็จ
+            self.attack_ready = False  # รีเซ็ตสถานะโจมตี
 
+    def prepare_attack(self):
+        # สุ่มตำแหน่งพื้นที่โจมตีรอบ ๆ ผู้เล่น
+        player_rect = self.game.player.rect
+        attack_area_size = 150
+        attack_x = random.randint(player_rect.left - attack_area_size, player_rect.right)
+        attack_y = random.randint(player_rect.top - attack_area_size, player_rect.bottom)
+        attack_rect = pg.Rect(attack_x, attack_y, attack_area_size, attack_area_size)
+        
+        # แสดงเอฟเฟกต์เตือนล่วงหน้า (สีเหลืองโปร่งใส)
+        warning_effect = WarningEffect(self.game, attack_rect.center, attack_area_size)
+        self.game.all_sprites.add(warning_effect)
+        self.pending_attack = attack_rect  # เก็บตำแหน่งพื้นที่โจมตีที่เตรียมไว้
 
-    def use_skill(self):
-        # สร้างพื้นที่โจมตี (เช่น วาดวงกลมสีแดงบนหน้าจอ)
-        explosion = Explosion(self.game, self.rect.center)
-        self.game.all_sprites.add(explosion)
-        # ตรวจสอบการชนกับผู้เล่น
-        if self.game.player.rect.colliderect(explosion.rect):
-            self.game.player.take_damage(20)  # ลดพลังชีวิตผู้เล่น
+    def execute_attack(self):
+        # สร้างพื้นที่โจมตีจริง (สีแดง) จากตำแหน่งที่เตรียมไว้
+        if self.pending_attack:
+            explosion = Explosion(self.game, self.pending_attack.center)
+            self.game.all_sprites.add(explosion)
+            # ตรวจสอบว่าผู้เล่นอยู่ในพื้นที่โจมตีหรือไม่
+            if self.game.player.rect.colliderect(self.pending_attack):
+                self.game.player.take_damage(20)  # ลดพลังชีวิตผู้เล่น
+            self.pending_attack = None  # ลบข้อมูลพื้นที่โจมตีที่ใช้ไปแล้ว
 
     def take_damage(self):
         self.health -= 1
@@ -407,16 +475,32 @@ class FinalBoss(pg.sprite.Sprite):
             self.die()
 
     def die(self):
-        print("Final Boss Defeated!")
         self.kill()
+
+class WarningEffect(pg.sprite.Sprite):
+    def __init__(self, game, center, size):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface((size, size), pg.SRCALPHA)
+        pg.draw.circle(self.image, (255, 255, 0, 128), (size // 2, size // 2), size // 2)  # วาดวงกลมสีเหลืองโปร่งใส
+        self.rect = self.image.get_rect()
+        self.rect.center = center
+        self.spawn_time = pg.time.get_ticks()
+
+    def update(self):
+        # ลบพื้นที่เตือนหลังจากดีเลย์โจมตี (3 วินาที)
+        if pg.time.get_ticks() - self.spawn_time > 700:
+            self.kill()
+
 
 class Explosion(pg.sprite.Sprite):
     def __init__(self, game, center):
         self.groups = game.all_sprites
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface((100, 100), pg.SRCALPHA)  # วาดพื้นที่โจมตี
-        pg.draw.circle(self.image, (255, 0, 0, 128), (50, 50), 50)  # วงกลมสีแดง
+        self.image = pg.Surface((100, 100), pg.SRCALPHA)  # พื้นที่โจมตี
+        pg.draw.circle(self.image, (255, 0, 0, 128), (50, 50), 50)  # วงกลมสีแดงโปร่งใส
         self.rect = self.image.get_rect()
         self.rect.center = center
         self.spawn_time = pg.time.get_ticks()
@@ -425,4 +509,5 @@ class Explosion(pg.sprite.Sprite):
         # ลบพื้นที่โจมตีหลังจาก 500 มิลลิวินาที
         if pg.time.get_ticks() - self.spawn_time > 500:
             self.kill()
+
 

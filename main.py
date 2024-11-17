@@ -72,6 +72,9 @@ class Game:
         img_folder = path.join(game_folder, "img")
         self.map = Map(path.join(game_folder, self.current_map))
         self.player_img = pg.image.load(path.join(img_folder, PLAYER_IMG)).convert_alpha()
+        self.sword_sound = pg.mixer.Sound('audio/sword.wav')
+        self.boss_hit_sound = pg.mixer.Sound('audio/Fire.wav')
+        self.background_music = 'audio/main.ogg'
 
     def show_main_menu(self):
         # โหลดภาพพื้นหลัง
@@ -88,6 +91,10 @@ class Game:
         start_button = pg.Rect(300, 125, 250, 70)   # ปุ่ม Start
         option_button = pg.Rect(300, 240, 250, 70)  # ปุ่ม Option
         exit_button = pg.Rect(300, 355, 250, 70)    # ปุ่ม Exit
+        pg.mixer.music.load(self.background_music)
+        pg.mixer.music.set_volume(0.5)
+        pg.mixer.music.play(loops=-1)
+
 
         while True:
             # วาดภาพพื้นหลัง มุมซ้ายตำแหน่ง 0 0
@@ -211,13 +218,13 @@ class Game:
         # เงื่อนไข: ผู้เล่นถึงจุดหมาย
         # if self.player.rect.colliderect(self.goal_rect):
         #     return True
-        return False
+        return False 
 
     def show_ending_scene(self):
-        # โหลดภาพพื้นหลังสำหรับฉากจบ
+        """แสดงฉากจบเกม"""
         background_image = pg.image.load("img/end.png").convert()
 
-        # ข้อความสำหรับฉากจบเป็นภาษาไทย
+        # ข้อความสำหรับฉากจบ
         ending_texts = [
             u"ท่านผู้กล้า ท่านช่างกล้าหาญยิ่งนัก.",
             u"ความสงบสุขได้กลับมาสู่อาณาจักร ด้วยฝีมือของท่าน.",
@@ -226,60 +233,56 @@ class Game:
             u"ขอบคุณที่ร่วมเล่นเกมนี้!"
         ]
 
-        # กำหนดฟอนต์ภาษาไทย
-        font_path = path.join("font", "THSarabunNew.ttf")  # ระบุที่อยู่ของฟอนต์ภาษาไทย
-        font = pg.font.Font(font_path, 40)  # ใช้ฟอนต์ภาษาไทย ขนาด 40
+        font_path = path.join("font", "THSarabunNew.ttf")
+        font = pg.font.Font(font_path, 40)
 
-        current_text_index = 0  # ตำแหน่งข้อความปัจจุบัน
-        text_to_display = ""    # ข้อความที่แสดงบนหน้าจอ
-        char_index = 0          # ตำแหน่งตัวอักษรสำหรับเอฟเฟกต์การพิมพ์
-        self.showing_ending = True  # ตัวแปรควบคุมการแสดงฉากจบ
-        delay_after_sentence = 2000  # หน่วงเวลา 2 วินาทีหลังจากแสดงประโยคครบ
-        sentence_complete_time = None  # เวลาที่แสดงประโยคครบทุกตัวอักษร
-        typing_speed = 50  # ความเร็วการแสดงผล (มิลลิวินาทีระหว่างตัวอักษร)
-        last_char_time = 0  # เก็บเวลาตัวอักษรก่อนหน้า
+        current_text_index = 0
+        text_to_display = ""
+        char_index = 0
+        self.showing_ending = True
+        delay_after_sentence = 2000  # รอ 2 วินาทีหลังจบข้อความ
+        sentence_complete_time = None
+        typing_speed = 50
+        last_char_time = 0
 
         while self.showing_ending:
-            self.scr_display.blit(background_image, (0, 0))  # วาดภาพพื้นหลัง
+            self.scr_display.blit(background_image, (0, 0))
 
-            # แสดงข้อความแบบทีละตัวอักษรด้วยการหน่วงเวลา
+            # แสดงข้อความทีละตัวอักษร
             if char_index < len(ending_texts[current_text_index]):
                 if pg.time.get_ticks() - last_char_time > typing_speed:
                     text_to_display += ending_texts[current_text_index][char_index]
                     char_index += 1
-                    last_char_time = pg.time.get_ticks()  # อัปเดตเวลาของตัวอักษรล่าสุด
+                    last_char_time = pg.time.get_ticks()
             else:
-                # ตั้งเวลาเมื่อประโยคแสดงครบและรอ 2 วินาทีก่อนขึ้นประโยคถัดไป
                 if sentence_complete_time is None:
                     sentence_complete_time = pg.time.get_ticks()
                 elif pg.time.get_ticks() - sentence_complete_time > delay_after_sentence:
-                    # ไปยังประโยคถัดไปหรือจบการแสดงผลถ้าครบทุกประโยคแล้ว
                     current_text_index += 1
                     if current_text_index < len(ending_texts):
-                        text_to_display = ""     # รีเซ็ตข้อความ
-                        char_index = 0           # รีเซ็ตตำแหน่งตัวอักษร
-                        sentence_complete_time = None  # รีเซ็ตเวลาหลังจากเปลี่ยนประโยค
+                        text_to_display = ""
+                        char_index = 0
+                        sentence_complete_time = None
                     else:
-                        self.showing_ending = False  # จบการแสดงฉากจบ
+                        self.showing_ending = False
 
-            # วาดกล่องข้อความและข้อความ โดยขยับขึ้น 15 พิกเซล
             text_surface = font.render(text_to_display, True, (0, 0, 0))
-            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 45))  # จุดแสดงผลของข้อความ
+            text_rect = text_surface.get_rect(midbottom=(WIDTH // 2, HEIGHT - 45))
             self.scr_display.blit(text_surface, text_rect)
 
-            
-            # ตรวจจับเหตุการณ์
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self.quit()
                 elif event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
-                    # หากกด Enter ให้ข้ามไปหน้าเมนู
-                    self.reset_game()  # รีเซ็ตสถานะเกมหลังจบคัทซีน
-                    self.show_main_menu()
-                    return
-                
-            pg.display.flip()  # อัปเดตหน้าจอ
-            self.clock.tick(FPS)  # ปรับความเร็วในการแสดงผลเฟรม
+                    self.showing_ending = False  # กด Enter เพื่อข้าม
+
+            pg.display.flip()
+            self.clock.tick(FPS)
+
+        # หลังจากจบฉากจบ ให้รีเซ็ตเกมและกลับไปที่เมนูหลัก
+        self.reset_game()
+        self.show_main_menu()
+
 
     def load_next_map(self): 
         # เช็คว่ามีแมพต่อไปหรือไม่
@@ -321,7 +324,14 @@ class Game:
                 # วาดข้อความ
                 self.scr_display.blit(text_surface, text_rect)
 
-    # method แสดงผล
+            
+    def is_map_cleared(self):
+        # ตรวจสอบว่าศัตรูใน Map 4 ทั้งหมดถูกกำจัดหรือยัง
+        if self.current_map == "map4.txt":
+            return len(self.enemies) == 0  # หากศัตรูหมดแล้ว จะคืนค่า True
+        return True  # หากไม่ใช่ Map 4 อนุญาตให้ผ่านได้โดยไม่เช็กศัตรู
+
+    # method แสดงผล 
     def draw(self):
         # แสดงผล background และ sprite อื่นๆ
         if self.background_image:
@@ -347,16 +357,21 @@ class Game:
             self.reset_game()
             self.show_main_menu()
 
-
+        
 
     def reset_game(self):
-        
+        """รีเซ็ตสถานะเกมเพื่อเริ่มเล่นใหม่"""
         self.current_map = "map1.txt"  # กำหนดแผนที่เริ่มต้นใหม่
-        # self.collected_items = 0  # รีเซ็ตจำนวนไอเทมที่เก็บ
-        # self.current_quest = None  # รีเซ็ตเควส
-        if hasattr(self, "player"):  # ตรวจสอบว่ามีผู้เล่นในเกม
+        self.collected_items = 0  # รีเซ็ตจำนวนไอเทมที่เก็บ
+        self.current_quest = None  # รีเซ็ตเควส
+
+        # รีเซ็ตสถานะผู้เล่น
+        if hasattr(self, "player"):
             self.player.health = 100  # รีเซ็ตค่าพลังชีวิตของผู้เล่น
-        self.load_data()  # โหลดข้อมูลแผนที่ใหม่
+
+        # โหลดข้อมูลแผนที่ใหม่
+        self.load_data()
+        self.new()  # เรียกใช้งาน method new เพื่อเริ่มต้นแมพใหม่
 
 
         # method อีเวนท์ต่างๆ
@@ -388,6 +403,12 @@ class Game:
     def load_map_in_direction(self, direction):
         # ตรวจสอบว่าทิศทางนี้มีแผนที่หรือไม่
         next_map = self.map_files[self.current_map].get(direction)
+        if next_map:
+            # หากเป็น Map 4 ให้ตรวจสอบว่าผู้เล่นกำจัดศัตรูหมดหรือยัง
+            if self.current_map == "map4.txt" and not self.is_map_cleared():
+
+                return  # ไม่อนุญาตให้เปลี่ยนแมพ
+
         if next_map:
             self.current_map = next_map  # เปลี่ยนแผนที่ปัจจุบันเป็นแผนที่ถัดไปในทิศทางที่ระบุ
             self.load_data()  # โหลดข้อมูลแผนที่ใหม่
