@@ -483,14 +483,14 @@ class WarningEffect(pg.sprite.Sprite):
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
         self.image = pg.Surface((size, size), pg.SRCALPHA)
-        pg.draw.circle(self.image, (255, 255, 0, 128), (size // 2, size // 2), size // 2)  # วาดวงกลมสีเหลืองโปร่งใส
+        pg.draw.circle(self.image, (255, 255, 0, 128), (size // 2, size // 2), size // 4)  # วาดวงกลมสีเหลืองโปร่งใส
         self.rect = self.image.get_rect()
         self.rect.center = center
         self.spawn_time = pg.time.get_ticks()
 
     def update(self):
         # ลบพื้นที่เตือนหลังจากดีเลย์โจมตี (3 วินาที)
-        if pg.time.get_ticks() - self.spawn_time > 700:
+        if pg.time.get_ticks() - self.spawn_time > 1500:
             self.kill()
 
 

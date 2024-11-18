@@ -1,13 +1,11 @@
 import pygame as pg # pg ย่อมาจาก pygame
 import sys
 from os import path
-# import file
 from sprites import *
 from settings import *
-from tilemap1 import *
-from sprites import NPC  # นำเข้า NPC จากไฟล์ sprites.py
-from npc_data import NPC_DATA
-from sprites import FinalBoss
+from tilemap import *
+from npc_data import *
+
 
 # สร้างคลาสเกม
 class Game:
@@ -27,10 +25,6 @@ class Game:
 
         # ตรวจการกดปุ่มค้างไว้
         pg.key.set_repeat(200, 200)
-
-        # self.quests = []  # รายการเควสในเกม
-        self.collected_items = 0
-        self.current_quest = None
         
         
 
